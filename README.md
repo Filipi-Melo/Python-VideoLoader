@@ -1,10 +1,10 @@
 # Python-VideoLoader
-# Description
-- A lightweight Youtube downloader app.
-- Download videos, music, thumbnails and playlists quickly.
-- It has an interactive interface.
+# Descrição
+- Um leve aplicativo baixador de videos do Youtube.
+- Baixe videos, músicas, thumbs e playlists rapidamente.
+- Possui uma interface interativa.
 
-# Instalation
-- Download the executable
-- Decompress the app
-- Put the app in desktop
+# Instalação
+- Baixe o executável
+- Descompacte o arquivo
+- Ponha o arquivo na área de trabalho
