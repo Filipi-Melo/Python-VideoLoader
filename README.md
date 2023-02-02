@@ -8,3 +8,5 @@
 - Download the executable
 - Decompress the app
 - Put the app in desktop
+
+### [To install click here >>](https://github.com/Filipi-Melo/Python-VideoLoader/releases/download/v0.2.0-En/Python.VideoLoader.zip)
