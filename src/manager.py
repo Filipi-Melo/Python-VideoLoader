@@ -10,93 +10,78 @@ from pathlib import Path
 
 class Manager:
     '`Classe gerenciadora de downloads.'
-    def __init__(self,args:dict) -> None:
-        self.args = args 
-        if self.invalid_args: return
+    def __init__(sf, args:dict) -> None:
+        sf.args = args
+        if sf.invalid_args: return
         try:
-            if self.args["info"]: return self.complete_info(self.args["url"])
-            link = Downloader(self.args)
+            if sf.args["info"]: return sf.complete_info
+            link = Downloader(sf.args)
             try:
-                if self.args["thumbnail"] and not self.args["playlist"]: link.download_thumbnail(self.args["url"])
-                if self.args["audio"] and not self.args["playlist"]: link.download_audio(self.args["url"]) 
-                if self.args["video"]: link.download_video(self.args["url"], self.args["resolution"])
-
+                if sf.args["thumbnail"] and not sf.args["playlist"]: link.download_thumbnail(sf.args["url"])
+                if sf.args["audio"] and not sf.args["playlist"]: link.download_audio(sf.args["url"]) 
+                if sf.args["video"]: link.download_video(sf.args["url"], sf.args["resolution"])
             except NoResolutionDesired: Message("O vídeo não tem a resolução selecionada.","error")
             except LiveStreamError: Message("""O vídeo é uma estreia e não pôde ser baixado.
                Tente novamente mais tarde.""","error")
             
-            if self.args["playlist"]: link.download_play_list(self.args["url"], self.args["audio"],
-            self.args["thumbnail"], self.args["resolution"])
-
+            if sf.args["playlist"]: link.download_play_list( sf.args["url"], sf.args["audio"],
+               sf.args["thumbnail"], sf.args["resolution"])
         except KeyboardInterrupt: Message('Interrompido pelo teclado.','error')
-        except BaseException as exc: Message(f"URL indisponível, causa do erro:\n{exc}","error")
+        except Exception as exc: Message(f"URL indisponível, causa do erro:\n{exc}","error")
 
     @property
-    def invalid_args(self) -> Message:
-        'Verifica os argumentos.'
-        empty:bool = True if True not in [self.args[i] for i in \
-        ['video','playlist','audio','thumbnail','info']] else False
-        
-        if empty: return Message('Selecione um botão.','error')
+    def invalid_args(sf) -> Message:
+        '`Verifica os argumentos.'
+        if not len([*filter(lambda i: sf.args[i], ('video','playlist','audio','thumbnail','info'))]): 
+            return Message('Selecione um botão.','error')
 
-        link = YouTubeLink(self.args["url"])
+        link = YouTubeLink(sf.args["url"])
         status = link.available_for_download
         if not status["available"]:
             return Message(status["error_message"],"error")
-        
-        if self.args["playlist"] and not link.is_playlist: 
+
+        if sf.args["playlist"] and not link.is_playlist: 
             return Message("Sinalizador de playlist fornecido, mas é a url de vídeo.","error")
-        
-        if self.args["resolution"] and not regex_search(r"^[\d]{3,4}[p]$",self.args["resolution"]): 
-            return Message(f'Foi providenciada resolução inválida "{self.args["resolution"]}".',"error")
-        
-        if not Path.is_dir(self.args["path"]):
-            return Message(f'Foi providenciado diretório inválido "{self.args["path"]}".',"error")
 
+        if sf.args["resolution"] and not regex_search(r"^[\d]{3,4}[p]$",sf.args["resolution"]): 
+            return Message(f'Foi providenciada resolução inválida "{sf.args["resolution"]}".',"error")
+
+        if not Path.is_dir(sf.args["path"]):
+            return Message(f'Foi providenciado diretório inválido "{sf.args["path"]}".',"error")
+
+    @property
     @with_internet
-    def complete_info(sf, url: str) -> None:
-        if sf.args["playlist"]: return sf.show_playlist_info(url)
-        sf.show_video_info(url)
+    def complete_info(sf) -> None:
+        if sf.args["playlist"]: return sf.show_playlist_info(sf.args['url'])
+        sf.show_video_info(sf.args['url'])
 
-    def show_video_info(sf, url: str) -> None:
-        'Pesquisa e mostra as informações do vídeo.'
-        video = YouTube(url)
-        resolutions = sf.available_resolutions(url)
-        info = f"""
-Informação do video:
-Titulo: {video.title}
-Canal: {video.author}
-Visualizações: {video.views}
-Duração: {str(td(seconds=video.length))}
-Progressivo: {" ".join(resolutions["progressive"])}
-Adaptável: {" ".join(resolutions["adaptive"])}
-Audio: {" ".join(resolutions["audio"])} """
-        Message(info)
-
-    def show_playlist_info(sf, url: str) -> None:
-        'Pesquisa e mostra as informações da playlist.'
-        playlist = Playlist(url)
-        try: channel=f"\nCanal: {playlist.owner}"
-        except: channel=""
-        info = f"""
-Informação da playlist:
-Titulo: {playlist.title} {channel}
-Visualizações: {playlist.views}
-Videos: {playlist.length}"""
-        Message(info)
-        
-    @with_internet
-    def available_resolutions(sf, url: str) -> dict:
-        'Retorna as resoluções diponíveis.'
+    @staticmethod
+    def show_video_info(url: str) -> None:
+        '`Pesquisa e mostra as informações do vídeo.`'
         video = YouTube(url)
         progressive = video.streams.filter(progressive=True, file_extension='mp4').desc()
-        adaptive = video.streams.filter(only_video=True,adaptive=True, file_extension='mp4').desc()
+        adaptive = video.streams.filter(only_video=True,adaptive=True, file_extension='mp4').asc()
         audio = video.streams.filter(only_audio=True, file_extension='mp4').desc()
+    
+        Message( f"""
+Informação do video:
+Titulo: {video.title}.
+Canal: {video.author}.
+Visualizações: {video.views:,}.
+Duração: {str(td(seconds=video.length))}.
+Progressivo: {", ".join({}.fromkeys( map(lambda stream: stream.resolution, progressive)))}.
+Adaptável: {", ".join({}.fromkeys( map(lambda stream: stream.resolution, adaptive)))}.
+Audio: {", ".join({}.fromkeys( map(lambda stream: stream.abr, audio)))}.""" )
 
-        progressive_resolution = [stream.resolution for stream in progressive if stream.resolution]
-        adaptive_resolution = [stream.resolution for stream in adaptive if stream.resolution]
-        audio_resolution = [stream.abr for stream in audio if stream.abr]
-        
-        return {"progressive":list(dict.fromkeys(progressive_resolution)),
-                "adaptive":list(dict.fromkeys(adaptive_resolution)),
-                "audio":list(dict.fromkeys(audio_resolution))}
+    @staticmethod
+    def show_playlist_info(url: str) -> None:
+        '`Pesquisa e mostra as informações da playlist.'
+        playlist = Playlist(url)
+        try: channel = f"\nCanal: {playlist.owner}."
+        except: channel = ""
+
+        Message( f"""
+Informação da playlist:
+Titulo: {playlist.title}.{channel}
+Visualizações: {playlist.views:,}.
+Videos: {playlist.length}.""" )

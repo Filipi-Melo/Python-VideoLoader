@@ -2,6 +2,7 @@
 from .printer import Message
 from urllib.error import URLError
 import re, urllib.request as url, requests
+from pathlib import Path
 
 def regex_search(pattern: str, string: str) -> bool:
     '`Verifica o padrão da url.'
@@ -15,12 +16,10 @@ def is_internet() -> bool:
 
 def with_internet(func):
     '`Verifica a conexão de internet.'
-    def wrapper(*arg, **kwargs):
-        return func(*arg, **kwargs) if is_internet() \
-        else Message("Conexão com a internet perdida.","error")
-    return wrapper
+    return lambda *args, **kwargs: func(*args, **kwargs) if is_internet() \
+        else (None, Message("Conexão com a internet perdida.","error"))[0]
 
 def download_image(url: str, name: str, output_folder: str) -> None:
     '`Baixa o conteúdo da imagem.'
-    with open(f"{output_folder}/{name}.jpg", 'wb') as handler:
+    with open(f'{output_folder}\{name}.jpg', 'wb') as handler:
         handler.write(requests.get(url).content)
