@@ -15,10 +15,8 @@ def is_internet() -> bool:
 
 def with_internet(func):
     '`Check your internet connection.'
-    def wrapper(*arg, **kwargs):
-        return func(*arg, **kwargs) if is_internet() \
-        else Message("Internet connection lost.","error")
-    return wrapper
+    return lambda *args, **kwargs: func(*args, **kwargs) if is_internet() \
+        else (None, Message("Internet connection lost.","error"))[0]
 
 def download_image(url: str, name: str, output_folder: str) -> None:
     '`Download image content.'

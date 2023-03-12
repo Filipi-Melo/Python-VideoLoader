@@ -4,103 +4,126 @@ from .util import with_internet, download_image
 from .printer import Message, show, colored
 from .youtube_link import YouTubeLink
 from .load_bar import LoadBar
-from pytube import YouTube, Playlist
 from datetime import timedelta as td
+from pytube import YouTube, Playlist
 from pathlib import Path
-
+ 
 class Downloader:
     '`Class downloader of videos, audios, thumbs and playlists.'
-    def __init__(self,args: dict) -> None:
-        self.args=args
-        self.video_prefix = "Py VLoader video_"
-        self.audio_prefix = "Py VLoader audio_"
+    def __init__(sf,args: dict) -> None:
+        sf.args, sf.video_prefix, sf.audio_prefix = (args,"Py VLoader video_","Py VLoader audio_")
         
     @with_internet
-    def download_thumbnail(self, url: str) -> None:
+    def download_thumbnail(sf, url:str) -> None:
         '`Download the thumbnail.'
         link = YouTubeLink(url)
-        if not link.is_video and link.is_playlist : return  
-    
+        if not link.is_video and link.is_playlist: return  
+
         video = YouTube(url)    
-        self.show_info(video)
-        info = f"""
+        sf.show_info(video)
+        text = [f"""
 Video information:
 Title: {video.title}
 Channel: {video.author}
 Duration: {str(td(seconds=video.length))}
 
-Thumbnail downloaded successfully!"""
-        status='success'
+Thumbnail downloaded successfully!""", 'success']
 
         try: download_image(
-            url=video.thumbnail_url,
-            name=video.title,
-            output_folder=self.args["path"])
-        except BaseException as exc:
-            info,status = f'Unable to download thumbnail.\nError cause: {exc}','error'
-            if self.args["playlist"]: return show(info+"\n",status)
+            video.thumbnail_url,
+            ''.join(filter(lambda c: c not in '/|\\?:<>*',video.title)),
+            sf.args["path"])
+        except Exception as exc:
+            text = [f'Unable to download thumbnail.\nError cause: {exc}','error']
+            show(text[0]+"\n", text[1])
+        Message(*text)
 
-        if not (self.args["playlist"] or self.args["video"]):
-            Message(info,status)
-
-    def download_audio(self, url: str):
+    @with_internet
+    def download_audio(sf, url: str) -> None:
         '`Download the audio.'
         link = YouTubeLink(url)
         if not link.is_video and link.is_playlist: return  
         
-        Bar=LoadBar()
+        Bar = LoadBar()
         video = YouTube(url,
             on_progress_callback= lambda stream,fh,bytes: Bar.update(bytes),
-            on_complete_callback= lambda a,b: show("\nDownloaded successfully!\n"))
-        
-        self.show_info(video) 
-        stream = video.streams.filter(only_audio=True, file_extension='mp4').desc().first()
+            on_complete_callback= lambda a,b: show("\nDownloaded successfully!\n")
+        )
+        if not sf.args['thumbnail']: sf.show_info(video)
+        stream = video.streams.filter(only_audio=True, file_extension='mp4').desc()[0]
         if not stream: raise LiveStreamError
-        
+
         show("Downloading the audio:")
-        Bar.total_size = stream.filesize
+        Bar.total = stream.filesize
         Bar.update(stream.filesize)
         file = stream.download(
-            output_path=self.args["path"],
-            filename_prefix=self.audio_prefix)
-        
+            output_path=sf.args["path"],
+            filename_prefix=sf.audio_prefix
+        )
+        text = [sf.info(video, Bar.filesize),"success"]
         path = Path(file)
         try: path.rename(path.with_suffix('.mp3'))
         except FileExistsError:
             path.unlink()
-            return show("File already exists!\n","error")
-            
-        if not (self.args["playlist"] or self.args["video"]): 
-            Message(self.info(video, Bar.filesize),"success")
-    
+            text = ['File already exists!','error']
+            show(text[0]+'\n',text[1])  
+        Message(*text)
+
     @with_internet
-    def download_video(self,url:str,resolution:str) -> None:
+    def download_video(sf,url:str,resolution:str) -> None:
         '`Download the video.'
         link = YouTubeLink(url)
         if link.is_playlist and not link.is_video: return
-        if resolution and not self.args['audio']: self.download_audio(url)
-        
+        if resolution and not sf.args['audio']: sf.download_audio(url)
+
         Bar = LoadBar()
         video = YouTube(url,
             on_progress_callback= lambda stream,fh, bytes: Bar.update(bytes),
-            on_complete_callback= lambda a,b: show("\nDownloaded successfully!\n"))
+            on_complete_callback= lambda a,b: show("\nDownloaded successfully!\n")
+        )
+        if not (sf.args['thumbnail'] or sf.args['audio'] or resolution): sf.show_info(video)
         
-        if not (self.args['thumbnail'] or resolution): self.show_info(video)
-        
-        stream = video.streams.get_highest_resolution()\
-        if not resolution else self.get_resolution(video.streams, resolution)
+        stream = video.streams.get_highest_resolution() if not resolution \
+        else sf.get_resolution(video.streams, resolution)
         if not stream: raise LiveStreamError
-        
+
         show("Downloading the video:")
-        Bar.total_size = stream.filesize
+        Bar.total = stream.filesize
         Bar.update(stream.filesize)
         stream.download(
-            output_path=self.args["path"],
-            filename_prefix=self.video_prefix)
-        if not self.args["playlist"]:
-            Message(self.info(video, Bar.filesize),"success")
+            output_path=sf.args["path"],
+            filename_prefix=sf.video_prefix
+        )
+        Message(sf.info(video, Bar.filesize),"success")
 
-    def info(self,video:YouTube, size:str) -> str:
+    @with_internet
+    def download_play_list(sf, url: str, audio_flag: bool, thumbnail_flag: bool, resolution: str) -> None:
+        '`Downloads the Playlist.'
+        success:bool = True
+        for video in Playlist(url).videos:
+            try:
+                status = YouTubeLink(video.watch_url).available_for_download
+                if not status["available"]:
+                    success = (error(video,status["error_message"]),show("Video skipped.\n","warning"))[0]
+                    continue
+                if thumbnail_flag: sf.download_thumbnail(video.watch_url)
+                if audio_flag: sf.download_audio(video.watch_url)
+                if not (audio_flag or thumbnail_flag): sf.download_video(video.watch_url, resolution)
+            except NoResolutionDesired:
+                success = (error(video,"The video does not have the selected resolution."),
+                           show("Video skipped.\n","warning"))[0]
+            except LiveStreamError:
+                success = error(video, 'Video is streaming live and cannot be loaded.\n'+
+                'Try again later.\n')
+            except KeyboardInterrupt:
+                success = error(video,'Keyboard interrupt.\n')
+            except Exception as exc:
+                success = error(video, f"Video unavailable, error cause:\n{exc}")
+        Message(*( ('Playlist downloaded successfully!','success') if success \
+            else ('Unable to download playlist successfully.','error') ))
+    
+    @staticmethod
+    def info(video:YouTube, size:str) -> str:
         '`Returns the downloaded video information.'
         return f"""
 Video information:
@@ -109,47 +132,25 @@ Channel: {video.author}
 Duration: {str(td(seconds=video.length))}
 Size: {size}
 
-|{size}| {'█'*18} 100% 
+|{size}| {'█'*20} 100% 
 
 Downloaded successfully!"""
-        
-    @with_internet
-    def download_play_list(self, url: str, audio_flag: bool, thumbnail_flag: bool, resolution: str) -> None:
-        '`Downloads the Playlist.'
-        success:bool=True
-        for video in Playlist(url).videos:
-            try:
-                status = YouTubeLink(video.watch_url).available_for_download
-                if not status["available"]:
-                    success,_ = show(status["error_message"],"error"),show("Video skipped.\n","warning")
-                    continue
-                if thumbnail_flag: self.download_thumbnail(video.watch_url)
-                if audio_flag: self.download_audio(video.watch_url)
-                if not (audio_flag or thumbnail_flag): self.download_video(video.watch_url, resolution)
 
-            except NoResolutionDesired:
-                show("The video does not have the selected resolution.","error")
-                success = show("Video skipped.\n","warning")
-            except LiveStreamError: 
-                success = show('\nVideo is streaming live and cannot be loaded.\n'+
-                'Try again later.\n',"error")
-            except KeyboardInterrupt:
-                success = show('Keyboard interrupt.\n','error')
-            except BaseException as exc: success = show(f"\nVideo unavailable, error cause:\n{exc}","error")
-
-        text,type = ('Playlist downloaded successfully!','success')\
-        if success else ('Unable to download playlist successfully.','error')
-        Message(text,type)
-
-    def get_resolution(self, streams: YouTube.streams, resolution: str):
+    @staticmethod
+    def get_resolution(streams: YouTube.streams, resolution: str):
         '`Get available resolutions.'
-        for stream in streams.filter(adaptive=True,file_extension='mp4').desc():
+        for stream in streams.filter(res=resolution,adaptive=True,file_extension='mp4').desc():
             if stream.resolution == resolution: return stream
         raise NoResolutionDesired
 
-    def show_info(self, video: YouTube) -> None:
+    @staticmethod
+    def show_info(video: YouTube) -> None:
         '`Shows the video information.'
-        print(f"""{colored("Video information:","warning")}
+        print( f"""{colored("Video information:","warning")}
 {colored("Title:")} {video.title}
 {colored("Channel:")} {video.author}
-{colored("Duration:")} {str(td(seconds=video.length))}\n""")
+{colored("Duration:")} {str(td(seconds=video.length))}\n""" )
+
+def error(video:YouTube, message:str) -> None:
+    '`Shows errors.'
+    show(message,'error'), Message(video.title+'\n\n'+message,'error')

@@ -4,20 +4,19 @@ from colorama import init,Fore
 
 class LoadBar:
     '`Loading bar generator class.'
-    total_size:float = 0
+    total:float = 0
     init(autoreset=True)
-    def update(self, remaining: int) -> None:
+
+    def update(sf, remaining: int) -> None:
         '`Updates the bar.'
-        finished = self.total_size - remaining
-        percent = round(100 * finished / self.total_size, 1)
-        filledLength = int(50 * finished // self.total_size)
+        finished = sf.total - remaining
+        percent = round(100 * finished / sf.total, 1)
+        filledLength = int(50 * finished // sf.total)
 
-        filled = Fore.GREEN +  '█' * filledLength + Fore.RESET 
-        not_filled = "-" * (50 - filledLength) 
-
-        finished_label =  size(finished,system=alternative)
-        self.filesize =  size(self.total_size,system=alternative)
+        filled = Fore.GREEN + '█' * filledLength + Fore.RESET
+        finished_label = size(finished, system=alternative)
+        sf.filesize = size(sf.total, system=alternative)
         
         print(" " * 100,end="\r")
-        self.text=f'\r{finished_label} / {self.filesize} |{ filled + not_filled}| {percent} %'
-        print(self.text, end = "\r")
+        sf.text = f'\r{finished_label} / {sf.filesize} |{ filled.ljust(60,"-") }| {percent} %'
+        print(sf.text, end = "\r")
