@@ -9,4 +9,4 @@
 - Descompacte o arquivo
 - Ponha o arquivo na área de trabalho
 
-### [Para instalar clique aqui >>](https://github.com/Filipi-Melo/Python-VideoLoader/releases/download/v0.2.0-Pt/Python.VideoLoader.zip)
+### [Para instalar clique aqui >>](https://github.com/Filipi-Melo/Python-VideoLoader/releases/download/v0.2.1-Pt/Python.VideoLoader.zip)
