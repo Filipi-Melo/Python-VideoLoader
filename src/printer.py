@@ -2,7 +2,6 @@
 from colorama import Style, Fore, init
 from .banner import IMAGE
 from random import randint
-from pathlib import Path
 from PySimpleGUI import *
 
 init(autoreset=True)
@@ -51,10 +50,11 @@ class Main(Windows):
     '`Classe geradora da janela principal'
     def __init__(sf,start:object) -> None:
         sf.start, pdx = start, 11
-        sf.args = {
+        sf.args:dict[str] = {
             'video':False,'audio':False,'thumbnail':False,'path':None,
             'playlist':False,'info':False,'resolution':None,'url':None
         }
+        
         expand = [Text("",key=k, expand_x=True) for k in range(4)]
         sf.layout = (
             [expand[0],Image(IMAGE),expand[1]],
@@ -118,7 +118,7 @@ class Main(Windows):
         
         if event == "download":
             sf.args["url"] = value["url"]
-            sf.args["path"] = Path(value["path"]) if value["path"] else Path.cwd()
+            sf.args["path"] = value["path"]
             sf.args["resolution"] = value["res"] if value["res"] else None
             sf.start(sf.args)
 

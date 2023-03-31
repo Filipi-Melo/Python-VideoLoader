@@ -10,8 +10,8 @@ from pathlib import Path
 
 class Downloader:
     '`Classe baixadora de vídeos, audios, thumbs e playlists.'
-    def __init__(sf,args: dict) -> None:
-        sf.args, sf.video_prefix, sf.audio_prefix = (args,"Py VLoader video_","Py VLoader audio_")
+    def __init__(sf, args:dict[str]) -> None:
+        sf.args, sf.video_prefix, sf.audio_prefix = (args, "Py VLoader video_", "Py VLoader audio_")
 
     @with_internet
     def download_thumbnail(sf, url: str) -> None:

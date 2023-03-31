@@ -1,17 +1,20 @@
 '`Módulo gerenciador de urls e downloads.'
-from .util import regex_search,with_internet
+from .exceptions import NoResolutionDesired, LiveStreamError
+from .util import regex_search, with_internet, Urlformat
 from .youtube_link import YouTubeLink
 from .downloader import Downloader
 from .printer import Message
-from .exceptions import *
-from pytube import YouTube, Playlist
 from datetime import timedelta as td
+from pytube import YouTube, Playlist
 from pathlib import Path
 
 class Manager:
     '`Classe gerenciadora de downloads.'
-    def __init__(sf, args:dict) -> None:
+    def __init__(sf, args:dict[str]) -> None:
         sf.args = args
+        sf.args["path"] = Path(sf.args["path"]) if sf.args["path"] else Path.cwd()
+        sf.args["url"] = Urlformat(sf.args["url"], sf.args["video"], sf.args["playlist"])
+
         if sf.invalid_args: return
         try:
             if sf.args["info"]: return sf.complete_info
