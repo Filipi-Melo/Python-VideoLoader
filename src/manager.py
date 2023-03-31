@@ -1,17 +1,20 @@
 '`URLs and downloads manager module.'
-from .util import regex_search,with_internet
+from .exceptions import NoResolutionDesired, LiveStreamError
+from .util import regex_search, with_internet, Urlformat
 from .youtube_link import YouTubeLink
 from .downloader import Downloader
 from .printer import Message
-from .exceptions import *
-from pytube import YouTube, Playlist
 from datetime import timedelta as td
+from pytube import YouTube, Playlist
 from pathlib import Path
 
 class Manager:
     '`Downloads manager class.'
-    def __init__(sf,args:dict) -> None:
+    def __init__(sf, args:dict[str]) -> None:
         sf.args = args
+        sf.args["path"] = Path(sf.args["path"]) if sf.args["path"] else Path.cwd()
+        sf.args["url"] = Urlformat(sf.args["url"], sf.args["video"], sf.args["playlist"])
+
         if sf.invalid_args: return
         try:
             if sf.args["info"]: return sf.complete_info
@@ -24,7 +27,7 @@ class Manager:
             except LiveStreamError: Message("""Video is streaming live and cannot be loaded.
                       Try again later.""","error")
         
-            if sf.args["playlist"]: link.download_play_list( sf.args["url"], sf.args["audio"],
+            if sf.args["playlist"]: link.download_play_list(sf.args["url"], sf.args["audio"],
                sf.args["thumbnail"], sf.args["resolution"])
         except KeyboardInterrupt: Message('Keyboard interrupt.','error')
         except Exception as exc: Message(f"URL unavailable, error cause:\n{exc}","error")
@@ -32,7 +35,7 @@ class Manager:
     @property
     def invalid_args(sf) -> Message:
         '`Checks the arguments.'
-        if not len([*filter(lambda i: sf.args[i], ('video','playlist','audio','thumbnail','info'))]): 
+        if not len([*filter(lambda i: sf.args[i], ['video','playlist','audio','thumbnail','info'])]): 
             return Message('Select a button.','error')
         
         link = YouTubeLink(sf.args["url"])
