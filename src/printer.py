@@ -21,7 +21,7 @@ def colored(text: str, type: str = "success") -> str:
     return f'{ styles[type] }{ text }{ Fore.RESET }' if type in styles else text
 
 class Windows:
-    '`Classe criadora de janelas'
+    '`Classe criadora de janelas.'
     blue, yellow, white, black= "#000280","#fcd600",'#ffffff','#000000'
     LOOK_AND_FEEL_TABLE['PyVLoaderTheme'] = {
     'BACKGROUND': '#a9b2d1', 'TEXT': black, 'INPUT': white, 
@@ -29,34 +29,37 @@ class Windows:
     'PROGRESS': ('#D1826B', '#CC8019'), 'BORDER': 1, 
     'SLIDER_DEPTH': 0, 'PROGRESS_DEPTH': 0}
     theme('PyVLoaderTheme')
-    windows, call = [],{}
-    
-    def create(sf, layout:list, show) -> Window:
-        '`Cria uma nova janela`'
-        window = Window("Py VLoader 2.0", layout, finalize=True,)
-        sf.windows.append(window), sf.call.update({str(window):show})
+    register:dict[str,dict] = {}
+    id:int = 0
+
+    @classmethod
+    def create(cls,layout:list, show) -> Window:
+        '`Cria uma nova janela.'
+        window:Window = Window("Py VLoader 2.0", layout, finalize=True,)
+        cls.register.update({str(window):{'id':cls.id, 'call':show}})
+        Windows.id += 1
         return window
 
     def loop(sf) -> None:
         '`Inicia as janelas.`'
-        while 1:
+        while True:
             window, event, value = read_all_windows()
-            if event and event != 'OK': sf.call[str(window)](event, value)
+            if event and event != 'OK': sf.register[str(window)]['call'](event, value)
             else:
-                if window == sf.windows[0]: break
-                window.close(), sf.windows.remove(window), sf.call.pop(str(window))
+                if not sf.register[str(window)]['id']: break
+                window.close()
+                sf.register.pop(str(window))
 
 class Main(Windows):
-    '`Classe geradora da janela principal'
+    '`Classe geradora da janela principal.'
     def __init__(sf,start:object) -> None:
         sf.start, pdx = start, 11
-        sf.args:dict[str] = {
+        sf.args:dict[str,bool|None] = {
             'video':False,'audio':False,'thumbnail':False,'path':None,
             'playlist':False,'info':False,'resolution':None,'url':None
         }
-        
-        expand = [Text("",key=k, expand_x=True) for k in range(4)]
-        sf.layout = (
+        expand:list[Text] = [Text("",key=k, expand_x=True) for k in range(4)]
+        layout:list = [
             [expand[0],Image(IMAGE),expand[1]],
             [expand[2],Text("Baixe videos e músicas do Youtube."),expand[3]],
             
@@ -81,57 +84,46 @@ class Main(Windows):
              Button("Limpar",key="clear",s=(pdx,0))],
 
             [Button("Baixar",key="download",s=(12,0),pad=(111,10),button_color=(sf.white, '#fc0000'))]
-        )
-        sf.window = sf.create(sf.layout, sf.show)
+        ]
+        sf.window = sf.create(layout, sf.show)
         sf.loop()
 
-    def update(sf,List:list) -> None:
-        '`Atualiza os botões na janela'
-        for i in range(len(List[0])):
-            sf.window[List[0][i]].update(button_color=(List[1][i], List[2][i]))
-            sf.args[List[3][i]] = List[4][i]
-    
-    def show(sf,event,value) -> None:
-        '`Atualiza a janela principal'
-        if event == "vid": sf.update((('vid','pl'),
-            (sf.black,sf.white),(sf.yellow,sf.blue),
-            ('video','playlist'),(True,False)))
+    def update(sf,*args:list) -> None:
+        '`Atualiza os botões na janela.'
+        for List in args:
+            sf.window[List[0]].update(button_color=(List[1], List[2]))
+            sf.args[List[3]] = List[4]
 
-        if event == "pl": sf.update((('pl','vid'),
-            (sf.black,sf.white),(sf.yellow,sf.blue),
-            ('playlist','video'),(True,False)))
+    def show(sf,event:str,value:dict) -> None:
+        '`Atualiza a janela principal.'
+        match event:
+            case "aud": sf.update(['aud',sf.black,sf.yellow,'audio',True],
+                                   ['info',sf.white,sf.blue,'info',False])
+            case "clear": sf.update(['vid',sf.white,sf.blue,'video',False], ['pl',sf.white,sf.blue,'playlist',False],
+                                    ['aud',sf.white,sf.blue,'audio',False], ['th',sf.white,sf.blue,'thumbnail',False],
+                                    ['info',sf.white,sf.blue,'info',False])
+            case "download":
+                sf.args["url"] = value["url"]
+                sf.args["path"] = value["path"]
+                sf.args["resolution"] = value["res"] if value["res"] else None
+                sf.start(sf.args)
 
-        if event == "aud": sf.update((('aud','info'),
-            (sf.black,sf.white),(sf.yellow,sf.blue),
-            ('audio','info'),(True,False)))
-
-        if event == "info": sf.update((('info','th','aud'),
-            (sf.black,sf.white,sf.white),(sf.yellow, sf.blue, sf.blue),
-            ('info','thumbnail','audio'),(True,False,False)))
-
-        if event == "th": sf.update((('th','info'),
-            (sf.black,sf.white),(sf.yellow,sf.blue),
-            ('thumbnail','info'),(True,False)))
-
-        if event == "clear": sf.update((('vid','pl','aud','th','info'), [sf.white]*5,
-            [sf.blue]*5, ('video','playlist','audio','thumbnail','info'), [False]*5))
-        
-        if event == "download":
-            sf.args["url"] = value["url"]
-            sf.args["path"] = value["path"]
-            sf.args["resolution"] = value["res"] if value["res"] else None
-            sf.start(sf.args)
+            case "info": sf.update(['info',sf.black,sf.yellow,'info',True], ['th',sf.white,sf.blue,'thumbnail',False],
+                                   ['aud',sf.white,sf.blue,'audio',False])
+            case "pl": sf.update(['pl',sf.black,sf.yellow,'playlist',True], ['vid',sf.white,sf.blue,'video',False])
+            case "th": sf.update(['th',sf.black,sf.yellow,'thumbnail',True], ['info',sf.white,sf.blue,'info',False])
+            case "vid": sf.update(['vid',sf.black,sf.yellow,'video',True], ['pl',sf.white,sf.blue,'playlist',False])
 
 class Message(Windows):
     '`Classe geradora das janelas de mensagens.'
     def __init__(sf, text:str, type:str = None) -> None:
-        expand = [Text(" ", key=k, expand_x=True) for k in range(6)]
-        num = randint(0,14)
-        emojis = {'success':EMOJI_BASE64_HAPPY_LIST[num], 'error':EMOJI_BASE64_SAD_LIST[num]} 
+        expand:list = [Text(" ", key=K, expand_x=True) for K in range(6)]
+        num:int = randint(0,14)
+        emojis:dict = {'success':EMOJI_BASE64_HAPPY_LIST[num], 'error':EMOJI_BASE64_SAD_LIST[num]} 
 
-        sf.layout = (
+        layout:list = [
             [expand[0], Text(text), expand[1]],
             [expand[2], Image(emojis[type]), expand[3]] if type in emojis else [],
             [expand[4], Button("OK"), expand[5]]
-        )
-        sf.create(sf.layout, lambda event, value: None)
+        ]
+        sf.create(layout, lambda event, value: None)

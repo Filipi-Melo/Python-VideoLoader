@@ -31,8 +31,9 @@ class YouTubeLink:
             if sf.is_video: sf.check_video_availability
             if sf.is_playlist and not Playlist(sf.url).videos: sf.status = 'NO_PLAYLIST'
         except: raise InternetError
-        
-        errors = {'NO_PLAYLIST':PlaylistUnavailable,'UNPLAYABLE':VideoUnavailable,'LIVE_STREAM':LiveStreamError}
+        errors:dict = {'NO_PLAYLIST':PlaylistUnavailable,
+                       'UNPLAYABLE':VideoUnavailable,
+                       'LIVE_STREAM':LiveStreamError}
         if sf.status in errors: raise errors[sf.status]
         
     @property
